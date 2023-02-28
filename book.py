@@ -9,11 +9,13 @@ router = APIRouter()
 
 
 @router.get('/')
-def get_books(db: Session = Depends(get_db), limit: int = 10, page: int = 1, search: str = ''):
-    skip = (page - 1) * limit
-
-    books = db.query(models.Book).filter(models.Book.title.contains(search)).limit(limit).offset(skip).all()
-    return {'status': 'success', 'results': len(books), 'books': books}
+def get_books(attribute_name: str = '', attribute_value: str = '', db: Session = Depends(get_db)):
+    if attribute_name and attribute_value and attribute_name in dir(models.Book):
+        book_attr = getattr(models.Book, attribute_name)
+        books = db.query(models.Book).filter(book_attr.contains(attribute_value)).all()
+    else:
+        books = db.query(models.Book).all()
+    return books
 
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
@@ -22,10 +24,10 @@ def create_book(payload: schemas.BookBaseSchema, db: Session = Depends(get_db)):
     db.add(new_book)
     db.commit()
     db.refresh(new_book)
-    return {"status": "success", "book": new_book}
+    return new_book
 
 
-@router.patch('/{book_id}')
+@router.put('/{book_id}')
 def update_book(book_id: str, payload: schemas.BookBaseSchema, db: Session = Depends(get_db)):
     book_query = db.query(models.Book).filter(models.Book.id == book_id)
     db_books = book_query.first()
@@ -33,18 +35,18 @@ def update_book(book_id: str, payload: schemas.BookBaseSchema, db: Session = Dep
     if not db_books:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'No book with this id: {book_id} found')
     update_data = payload.dict(exclude_unset=True)
-    book_query.filter(models.Book.id == book_id).update(update_data, synchronize_session="False")
+    book_query.update(update_data)
     db.commit()
     db.refresh(db_books)
-    return {"status": "success", "book": db_books}
+    return db_books
 
 
 @router.get('/{book_id}')
-def get_post(book_id: str, db: Session = Depends(get_db)):
+def get_book(book_id: str, db: Session = Depends(get_db)):
     book = db.query(models.Book).filter(models.Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No book with this id: {id} found")
-    return {"status": "success", "book": book}
+    return book
 
 
 @router.delete('/{book_id}')
@@ -53,6 +55,6 @@ def delete_post(book_id: str, db: Session = Depends(get_db)):
     book = book_query.first()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'No book with this id: {id} found')
-    book_query.delete(synchronize_session="False")
+    book_query.delete()
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
