@@ -1,26 +1,26 @@
 from fastapi import Depends, HTTPException, status, APIRouter, Response
 from sqlalchemy.orm import Session
 
-import models
-import schemas
-from database import get_db
+from database.config import get_db
+from database.models import BookModel
+from schemas.book_schema import BookBaseSchema
 
 router = APIRouter()
 
 
 @router.get('/')
 def get_books(attribute_name: str = '', attribute_value: str = '', db: Session = Depends(get_db)):
-    if attribute_name and attribute_value and attribute_name in dir(models.Book):
-        book_attr = getattr(models.Book, attribute_name)
-        books = db.query(models.Book).filter(book_attr.contains(attribute_value)).all()
+    if attribute_name and attribute_value and attribute_name in dir(BookModel):
+        book_attr = getattr(BookModel, attribute_name)
+        books = db.query(BookModel).filter(book_attr.contains(attribute_value)).all()
     else:
-        books = db.query(models.Book).all()
+        books = db.query(BookModel).all()
     return books
 
 
 @router.post('/', status_code=status.HTTP_201_CREATED)
-def create_book(payload: schemas.BookBaseSchema, db: Session = Depends(get_db)):
-    new_book = models.Book(**payload.dict())
+def create_book(payload: BookBaseSchema, db: Session = Depends(get_db)):
+    new_book = BookModel(**payload.dict())
     db.add(new_book)
     db.commit()
     db.refresh(new_book)
@@ -28,8 +28,8 @@ def create_book(payload: schemas.BookBaseSchema, db: Session = Depends(get_db)):
 
 
 @router.put('/{book_id}')
-def update_book(book_id: str, payload: schemas.BookBaseSchema, db: Session = Depends(get_db)):
-    book_query = db.query(models.Book).filter(models.Book.id == book_id)
+def update_book(book_id: str, payload: BookBaseSchema, db: Session = Depends(get_db)):
+    book_query = db.query(BookModel).filter(BookModel.id == book_id)
     db_books = book_query.first()
 
     if not db_books:
@@ -43,7 +43,7 @@ def update_book(book_id: str, payload: schemas.BookBaseSchema, db: Session = Dep
 
 @router.get('/{book_id}')
 def get_book(book_id: str, db: Session = Depends(get_db)):
-    book = db.query(models.Book).filter(models.Book.id == book_id).first()
+    book = db.query(BookModel).filter(BookModel.id == book_id).first()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No book with this id: {id} found")
     return book
@@ -51,7 +51,7 @@ def get_book(book_id: str, db: Session = Depends(get_db)):
 
 @router.delete('/{book_id}')
 def delete_post(book_id: str, db: Session = Depends(get_db)):
-    book_query = db.query(models.Book).filter(models.Book.id == book_id)
+    book_query = db.query(BookModel).filter(BookModel.id == book_id)
     book = book_query.first()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'No book with this id: {id} found')
