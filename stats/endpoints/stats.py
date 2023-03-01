@@ -1,60 +1,36 @@
-from fastapi import Depends, HTTPException, status, APIRouter, Response
+from pathlib import Path
+
+from fastapi import Depends, APIRouter
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from database.config import get_db
-from database.models import BookModel
-from schemas.book_schema import BookBaseSchema
+from db_access.config import get_db
+from db_access.models import StatsModel
 
-router = APIRouter()
-
-
-@router.get('/')
-def get_books(attribute_name: str = '', attribute_value: str = '', db: Session = Depends(get_db)):
-    if attribute_name and attribute_value and attribute_name in dir(BookModel):
-        book_attr = getattr(BookModel, attribute_name)
-        books = db.query(BookModel).filter(book_attr.contains(attribute_value)).all()
-    else:
-        books = db.query(BookModel).all()
-    return books
+stats_router = APIRouter()
 
 
-@router.post('/', status_code=status.HTTP_201_CREATED)
-def create_book(payload: BookBaseSchema, db: Session = Depends(get_db)):
-    new_book = BookModel(**payload.dict())
-    db.add(new_book)
+@stats_router.put("/")
+def calculate_stats(db: Session = Depends(get_db)):
+    payload = {}
+    for sql_query in dir(StatsModel):
+        if sql_query.startswith("sql_"):  # useful class attributes (later file names) start with 'sql_'
+            try:
+                file_path = f"{Path(__file__).parent.parent.resolve() / 'sql_queries' / sql_query}.sql"
+                with open(file_path) as file:
+                    raw_sql = file.read()
+                query_result = db.execute(text(raw_sql)).all()
+                payload[sql_query] = str(query_result)
+            except FileNotFoundError:
+                payload[sql_query] = "Unknown"
+
+    new_stats = StatsModel(**payload)
+    db.add(new_stats)
     db.commit()
-    db.refresh(new_book)
-    return new_book
+    db.refresh(new_stats)
+    return new_stats
 
 
-@router.put('/{book_id}')
-def update_book(book_id: str, payload: BookBaseSchema, db: Session = Depends(get_db)):
-    book_query = db.query(BookModel).filter(BookModel.id == book_id)
-    db_books = book_query.first()
-
-    if not db_books:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'No book with this id: {book_id} found')
-    update_data = payload.dict(exclude_unset=True)
-    book_query.update(update_data)
-    db.commit()
-    db.refresh(db_books)
-    return db_books
-
-
-@router.get('/{book_id}')
-def get_book(book_id: str, db: Session = Depends(get_db)):
-    book = db.query(BookModel).filter(BookModel.id == book_id).first()
-    if not book:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No book with this id: {id} found")
-    return book
-
-
-@router.delete('/{book_id}')
-def delete_post(book_id: str, db: Session = Depends(get_db)):
-    book_query = db.query(BookModel).filter(BookModel.id == book_id)
-    book = book_query.first()
-    if not book:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'No book with this id: {id} found')
-    book_query.delete()
-    db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+@stats_router.get("/")
+def get_stats(db: Session = Depends(get_db)):
+    return db.query(StatsModel).order_by(StatsModel.calculated_at.desc()).all()
