@@ -27,6 +27,13 @@ auto generated (detailed) description with examples about the services can be fo
     - DATABASE_URL=postgresql://postgres:postgrespw@localhost:5432/mydb
     - STATSHOST=localhost
     - STATSPORT=8081
+  - python -m venv venv
+  - on Windows:
+    - venv\Scripts\activate
+  - on Linux/MacOS:
+    - source venv/bin/activate
+  - pip install -r requirements.txt
+  - python main.py
 - book_keeper
   - open the book_keeper folder in your favourite editor
   - set the following environmental variables:
@@ -36,6 +43,13 @@ auto generated (detailed) description with examples about the services can be fo
     - STATS_URL=http://localhost:8081;
     - STATSHOST=localhost;
     - STATSPORT=8081
+  - python -m venv venv
+  - on Windows:
+    - venv\Scripts\activate
+  - on Linux/MacOS:
+    - source venv/bin/activate
+  - pip install -r requirements.txt
+  - python main.py
 - books_keeper service will require stats service for handling the PUT and POST requests (for the stats update notification)
 - both book_keeper and stats will require the database, you can start that from another command line with:
   - cd database
